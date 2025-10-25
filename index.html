@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlowMoney - Simulador entre países</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #FFFFFF;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+    header {
+      background-color: #002879;
+      color: white;
+      padding: 2rem;
+    }
+    input, select, button {
+      margin: 1rem;
+      padding: 0.5rem;
+      font-size: 1rem;
+    }
+    button {
+      background-color: #000000;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #004d40;
+    }
+    #tasaActual, #resultado, #estadoCarga {
+      font-weight: bold;
+      margin-top: 1rem;
+    }
+    #estadoCarga {
+      color: #555;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="logo.png" alt="Logo Cambio Global" style="height: 100px;" />
+    <h1>Flow Money</h1>
+    <p>Cambia tu dinero fácilmente</p>
+  </header>
+
+  <section>
+    <h2>Calculadora de cambio</h2>
+    <input type="number" id="monto" placeholder="Monto a enviar" />
+    <br />
+    <select id="origen">
+      <option value="ARS">Argentina (ARS)</option>
+      <option value="VES">Venezuela (VES)</option>
+      <option value="BRL">Brasil (BRL)</option>
+      <option value="MXN">México (MXN)</option>
+      <option value="USD">Estados Unidos (USD)</option>
+    </select>
+    <select id="destino">
+      <option value="ARS">Argentina (ARS)</option>
+      <option value="VES">Venezuela (VES)</option>
+      <option value="BRL">Brasil (BRL)</option>
+      <option value="MXN">México (MXN)</option>
+      <option value="USD">Estados Unidos (USD)</option>
+      <option value="PEN">Perú (PEN)</option>
+    </select>
+    <br />
+    <p id="estadoCarga">⏳ Cargando tasas desde FlowSheet...</p>
+    <p id="tasaActual"></p>
+    <button onclick="convertir()">Calcular</button>
+    <p id="resultado"></p>
+  </section>
+
+  <script>
+    const origenSelect = document.getElementById("origen");
+    const destinoSelect = document.getElementById("destino");
+    const tasaActual = document.getElementById("tasaActual");
+    const resultado = document.getElementById("resultado");
+    const estadoCarga = document.getElementById("estadoCarga");
+
+    let tasas = {};
+
+    async function cargarTasasDesdeSheets() {
+      try {
+        const url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQIlgcOnQUruSzLFMJZcjHAHWnyizVULX_aYWgWVco3d2PhxdYBmG5DvpWXy6_iUzHOWBpb3wtJ2ZXs/pub?output=csv";
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("No se pudo acceder a la hoja");
+
+        const csv = await response.text();
+        const filas = csv.trim().split("\n").slice(1); // Ignora encabezado
+
+        tasas = {};
+
+        filas.forEach(linea => {
+          const [origen, destino, valor] = linea.split(",");
+          const tasa = parseFloat(valor);
+          if (!tasas[origen]) tasas[origen] = {};
+          tasas[origen][destino] = tasa;
+        });
+
+        estadoCarga.textContent = "✅ Tasas cargadas correctamente.";
+        mostrarTasa();
+      } catch (error) {
+        estadoCarga.textContent = "❌ Error al cargar las tasas. Verificá tu hoja de cálculo.";
+        console.error("Error al cargar tasas:", error);
+      }
+    }
+
+    function mostrarTasa() {
+      const origen = origenSelect.value;
+      const destino = destinoSelect.value;
+
+      if (origen === destino) {
+        tasaActual.textContent = "Selecciona países diferentes.";
+        return;
+      }
+
+      const tasa = tasas[origen]?.[destino];
+      if (!tasa) {
+        tasaActual.textContent = "Tasa no disponible para esa conversión.";
+        return;
+      }
+
+      const formato = new Intl.NumberFormat('es-ES', {
+        style: 'decimal',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+
+      tasaActual.textContent = `Tasa actual: 1 ${origen} = ${formato.format(tasa)} ${destino}`;
+    }
+
+    function convertir() {
+      const monto = parseFloat(document.getElementById("monto").value);
+      const origen = origenSelect.value;
+      const destino = destinoSelect.value;
+
+      if (origen === destino) {
+        resultado.textContent = "Seleccioná países diferentes.";
+        return;
+      }
+
+      const tasa = tasas[origen]?.[destino];
+      if (!tasa || isNaN(monto)) {
+        resultado.textContent = "Tasa no disponible o monto inválido.";
+        return;
+      }
+
+      const total = monto * tasa;
+      const formato = new Intl.NumberFormat('es-ES', {
+        style: 'decimal',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+
+      resultado.innerHTML = `
+        Tasa de cambio: <strong>1 ${origen} = ${formato.format(tasa)} ${destino}</strong><br>
+        Recibirás aproximadamente <strong>${formato.format(total)} ${destino}</strong>
+      `;
+    }
+
+    origenSelect.addEventListener("change", mostrarTasa);
+    destinoSelect.addEventListener("change", mostrarTasa);
+
+    cargarTasasDesdeSheets();
+  </script>
+</body>
+</html>
